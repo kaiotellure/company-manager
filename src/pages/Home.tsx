@@ -51,23 +51,49 @@ function CalculateChangePopup({
 		}
 	}
 
-	const change = giveChange(amount, b);
-	console.log(change);
+	const { change, remaining } = giveChange(amount, b);
+	const changeEntries = Object.entries(change);
 
 	return (
 		// biome-ignore lint/a11y/useKeyWithClickEvents:
 		<div
 			onClick={(e) => e.stopPropagation()}
-			className="bg-zinc-800 p-4 rounded"
+			className="max-w-2/3 bg-zinc-800 p-4 rounded"
 		>
 			<h2 className="font-medium">Calcular Troco</h2>
+			<p className="text-sm opacity-80">
+				Insira o valor que deseja formar e mostraremos como montar este valor
+				com as cédulas e moedas disponíveis.
+			</p>
+
 			<input
 				type="number"
 				value={amount}
 				onChange={(e) => setAmount(Number.parseInt(e.target.value))}
-				className="p-2 rounded border border-zinc-600"
-				placeholder="Valor do troco"
+				className="mt-2 px-4 py-2 w-full rounded bg-zinc-900"
+				placeholder="Valor a ser montado"
 			/>
+
+			{amount && (
+				<div>
+					{remaining ? (
+						<p className="mt-2 text-red-500 font-medium text-sm">
+							ATENÇÃO: Não foi possível formar o valor com as cédulas e moedas
+							disponíveis. Ainda restam R${remaining}
+						</p>
+					) : (
+						<h2 className="mt-2 text-sm font-medium opacity-40">A ENTREGAR</h2>
+					)}
+
+					{changeEntries.map(([c, q]) => {
+						return (
+							<p key={c}>
+								{q} de {c}
+							</p>
+						);
+					})}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -339,10 +365,13 @@ export default function Home() {
 
 	const [currentTab, setCurrentTab] = useState(0);
 
-	if (!employee) {
-		go("/login");
-		return;
-	}
+	// biome-ignore lint/correctness/useExhaustiveDependencies:
+	useEffect(() => {
+		if (!employee) {
+			go("/login");
+			return;
+		}
+	}, []);
 
 	const tabs = [
 		/* employee.role === "ADMINISTRADOR" && {
@@ -404,7 +433,7 @@ export default function Home() {
 
 				<div className="flex flex-col">
 					<span className="text-xs opacity-40">Olá!</span>
-					{employee.name}
+					{employee?.name}
 				</div>
 			</section>
 

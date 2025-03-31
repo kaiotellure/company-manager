@@ -1,7 +1,7 @@
 export function giveChange(
 	amount: number,
 	availableBills: number[],
-): Record<number, number> {
+): {change: Record<number, number>; remaining: number} {
 	// Sort the bills in descending order
 	availableBills.sort((a, b) => b - a);
 
@@ -16,11 +16,5 @@ export function giveChange(
 		}
 	}
 
-	if (remaining > 0) {
-		console.log(
-			"It was not possible to give exact change with the available bills.",
-		);
-	}
-
-	return change;
+	return {change, remaining};
 }
