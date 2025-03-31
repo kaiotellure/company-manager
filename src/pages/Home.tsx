@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import useEmployeeStore from "../components/EmployeeStore";
 import { cn } from "../lib/utils";
+import { giveChange } from "../lib/changeAlgo";
 
 function Cedula({
 	children,
@@ -34,6 +35,39 @@ function Coin({
 			className="flex flex-col justify-center items-center p-1 aspect-square rounded-full font-bold text-xl"
 		>
 			{children}
+		</div>
+	);
+}
+
+function CalculateChangePopup({
+	bills,
+}: { bills: { v: number; q: number }[] }) {
+	const [amount, setAmount] = useState(0);
+
+	const b = [];
+	for (const bill of bills) {
+		for (let i = 0; i < bill.q; i++) {
+			b.push(bill.v);
+		}
+	}
+
+	const change = giveChange(amount, b);
+	console.log(change);
+
+	return (
+		// biome-ignore lint/a11y/useKeyWithClickEvents:
+		<div
+			onClick={(e) => e.stopPropagation()}
+			className="bg-zinc-800 p-4 rounded"
+		>
+			<h2 className="font-medium">Calcular Troco</h2>
+			<input
+				type="number"
+				value={amount}
+				onChange={(e) => setAmount(Number.parseInt(e.target.value))}
+				className="p-2 rounded border border-zinc-600"
+				placeholder="Valor do troco"
+			/>
 		</div>
 	);
 }
@@ -109,30 +143,45 @@ function ChangeSection() {
 		return () => document.removeEventListener("keyup", onKey);
 	}, [mode]);
 
-	const sum = [
-		one * 1,
-		tenCents * 0.1,
-		ten * 10,
-		oneHundred * 100,
-		twentyFiveCents * 0.25,
-		two * 2,
-		twenty * 20,
-		twoHundred * 200,
-		fiveCents * 0.05,
-		five * 5,
-		fifty * 50,
-		fiftyCents * 0.5,
-	].reduce((a, b) => a + b, 0);
+	const availableBills = [
+		{ v: 1, q: one },
+		{ v: 0.1, q: tenCents },
+		{ v: 10, q: ten },
+		{ v: 100, q: oneHundred },
+		{ v: 0.25, q: twentyFiveCents },
+		{ v: 2, q: two },
+		{ v: 20, q: twenty },
+		{ v: 200, q: twoHundred },
+		{ v: 0.05, q: fiveCents },
+		{ v: 5, q: five },
+		{ v: 50, q: fifty },
+		{ v: 0.5, q: fiftyCents },
+	];
+
+	const sum = availableBills.reduce((a, b) => a + b.v * b.q, 0);
+
+	const [isPopupOpen, setIsPopupOpen] = useState(false);
 
 	return (
-		<section className="flex flex-col h-screen p-4 gap-2 rounded">
-			<div className="flex gap-2">
+		<section className="relative flex flex-col h-screen p-4 gap-2 rounded">
+			{isPopupOpen && (
+				// biome-ignore lint/a11y/useKeyWithClickEvents:
+				<div
+					onClick={() => setIsPopupOpen(false)}
+					className="z-10 absolute flex justify-center items-center top-0 left-0 w-full h-full bg-black/75 backdrop-blur-md"
+				>
+					<CalculateChangePopup bills={availableBills} />
+				</div>
+			)}
+
+			<div className="flex items-center gap-2">
 				<div title="Soma total das cédulas e moedas em caixa">
 					SOMA:{" "}
 					<span className="text-emerald-500 font-semibold">
 						R${sum.toFixed(2)}
 					</span>
 				</div>
+
 				<div title="Aperte espaço para alternar entre ENTRANDO e SAINDO">
 					MODO:{" "}
 					<span
@@ -144,6 +193,15 @@ function ChangeSection() {
 						{mode ? "ENTRANDO" : "SAINDO"}
 					</span>
 				</div>
+
+				<button
+					onClick={(e) => setIsPopupOpen(true)}
+					className="bg-white/10 hover:bg-white/20 rounded px-2 py-1 cursor-pointer"
+					type="button"
+					title="Aperte espaço para alternar entre ENTRANDO e SAINDO"
+				>
+					Calcular Troco
+				</button>
 			</div>
 
 			<span className="mt-4 text-xs opacity-40 font-medium">CÉDULAS</span>
