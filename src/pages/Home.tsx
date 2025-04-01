@@ -1,10 +1,15 @@
-import { Archive, Banknote, User } from "lucide-react";
+import { Banknote } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 
 import useEmployeeStore from "../components/EmployeeStore";
 import { cn } from "../lib/utils";
-import { giveChange } from "../lib/changeAlgo";
+import {
+	type BillKey,
+	BILLS,
+	type DescriptiveBill,
+	getChangeFor,
+} from "../lib/bills";
 
 function Cedula({
 	children,
@@ -39,20 +44,9 @@ function Coin({
 	);
 }
 
-function CalculateChangePopup({
-	bills,
-}: { bills: { v: number; q: number }[] }) {
+function CalculateChangePopup({ bills }: { bills: DescriptiveBill[] }) {
 	const [amount, setAmount] = useState(0);
-
-	const b = [];
-	for (const bill of bills) {
-		for (let i = 0; i < bill.q; i++) {
-			b.push(bill.v);
-		}
-	}
-
-	const { change, remaining } = giveChange(amount, b);
-	const changeEntries = Object.entries(change);
+	const { change, remaining } = getChangeFor(amount, bills);
 
 	return (
 		// biome-ignore lint/a11y/useKeyWithClickEvents:
@@ -74,51 +68,42 @@ function CalculateChangePopup({
 				placeholder="Valor a ser montado"
 			/>
 
-			{amount && (
+			{amount !== 0 && (
 				<div>
-					{remaining ? (
-						<p className="mt-2 text-red-500 font-medium text-sm">
-							ATENÇÃO: Não foi possível formar o valor com as cédulas e moedas
-							disponíveis. Ainda restam R${remaining}
-						</p>
-					) : (
-						<h2 className="mt-2 text-sm font-medium opacity-40">A ENTREGAR</h2>
-					)}
+					<h2 className="mt-2 text-sm font-medium opacity-40">A ENTREGAR</h2>
 
-					{changeEntries.map(([c, q]) => {
+					{change.map(({ name, value, quantity }) => {
 						return (
-							<p key={c}>
-								{q} de {c}
+							<p key={name}>
+								{quantity} {value > 1 ? "cédula(s)" : "moeda(s)"} <span className="opacity-60">de</span> <b>{name}</b>
 							</p>
 						);
 					})}
+
+					{remaining !== 0 && (
+						<p className="text-red-500 font-medium text-sm">
+							ATENÇÃO: Ainda restam R${remaining}
+						</p>
+					)}
 				</div>
 			)}
 		</div>
 	);
 }
 
-const max = Math.max;
-
 function ChangeSection() {
 	const [mode, setMode] = useState(true);
+	const [isPopupOpen, setIsPopupOpen] = useState(false);
 
-	const [one, setOne] = useState(0);
-	const [tenCents, setTenCents] = useState(0);
-	const [ten, setTen] = useState(0);
-	const [oneHundred, setOneHundred] = useState(0);
+	const [storage, setStorage] = useState<Record<string, number>>({});
 
-	const [twentyFiveCents, setTwentyFiveCents] = useState(0);
-	const [two, setTwo] = useState(0);
-	const [twenty, setTwenty] = useState(0);
-	const [twoHundred, setTwoHundred] = useState(0);
-
-	const [fiveCents, setFiveCents] = useState(0);
-	const [fiftyCents, setFiftyCents] = useState(0);
-	const [five, setFive] = useState(0);
-	const [fifty, setFifty] = useState(0);
+	function update(name: BillKey, offset: number) {
+		setStorage((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) + offset) }));
+	}
 
 	function onKey(e: KeyboardEvent) {
+		if (isPopupOpen) return;
+
 		const dir = mode ? 1 : -1;
 		console.log(mode, dir, e.key, e.code, e.altKey, e.ctrlKey, e.shiftKey);
 
@@ -128,34 +113,33 @@ function ChangeSection() {
 				break;
 
 			case "Digit1":
-				if (e.altKey) return setOne((c) => max(0, c + dir));
-				if (e.shiftKey) return setOneHundred((c) => max(0, c + dir));
-				setTen((c) => max(0, c + dir));
+				if (e.altKey) return update("1R", dir);
+				if (e.shiftKey) return update("R$100", dir);
+				update("R$10", dir);
 				break;
 
 			case "Digit2":
-				if (e.altKey) return setTwo((c) => max(0, c + dir));
-				if (e.shiftKey) return setTwoHundred((c) => max(0, c + dir));
-				setTwenty((c) => max(0, c + dir));
+				if (e.altKey) return update("R$2", dir);
+				if (e.shiftKey) return update("R$200", dir);
+				update("R$20", dir);
 				break;
 
 			case "Digit5":
-				if (e.altKey) return setFifty((c) => max(0, c + dir));
-				if (e.shiftKey) return;
-				setFive((c) => max(0, c + dir));
+				if (e.altKey) return update("R$50", dir);
+				update("R$5", dir);
 				break;
 
 			case "KeyD":
-				setTenCents((c) => max(0, c + dir));
+				update("10c", dir);
 				break;
 
 			case "KeyC":
-				if (e.altKey) return setFiveCents((c) => max(0, c + dir));
-				setFiftyCents((c) => max(0, c + dir));
+				if (e.altKey) return update("5c", dir);
+				update("50c", dir);
 				break;
 
 			case "KeyV":
-				setTwentyFiveCents((c) => max(0, c + dir));
+				update("25c", dir);
 				break;
 
 			default:
@@ -167,26 +151,15 @@ function ChangeSection() {
 	useEffect(() => {
 		document.addEventListener("keyup", onKey);
 		return () => document.removeEventListener("keyup", onKey);
-	}, [mode]);
+	}, [mode, isPopupOpen]);
 
-	const availableBills = [
-		{ v: 1, q: one },
-		{ v: 0.1, q: tenCents },
-		{ v: 10, q: ten },
-		{ v: 100, q: oneHundred },
-		{ v: 0.25, q: twentyFiveCents },
-		{ v: 2, q: two },
-		{ v: 20, q: twenty },
-		{ v: 200, q: twoHundred },
-		{ v: 0.05, q: fiveCents },
-		{ v: 5, q: five },
-		{ v: 50, q: fifty },
-		{ v: 0.5, q: fiftyCents },
-	];
+	const available = Object.entries(BILLS).map(([name, kind]) => ({
+		name,
+		value: kind.value,
+		quantity: storage[name] || 0,
+	}));
 
-	const sum = availableBills.reduce((a, b) => a + b.v * b.q, 0);
-
-	const [isPopupOpen, setIsPopupOpen] = useState(false);
+	const sum = available.reduce((a, b) => a + b.value * b.quantity, 0);
 
 	return (
 		<section className="relative flex flex-col h-screen p-4 gap-2 rounded">
@@ -196,7 +169,7 @@ function ChangeSection() {
 					onClick={() => setIsPopupOpen(false)}
 					className="z-10 absolute flex justify-center items-center top-0 left-0 w-full h-full bg-black/75 backdrop-blur-md"
 				>
-					<CalculateChangePopup bills={availableBills} />
+					<CalculateChangePopup bills={available} />
 				</div>
 			)}
 
@@ -235,7 +208,7 @@ function ChangeSection() {
 				{/* Cedula de dois reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#2c7fb8">R$2</Cedula>
-					<span className="mt-2 font-bold text-lg">{two}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$2}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						Alt + 2
 					</div>
@@ -244,7 +217,7 @@ function ChangeSection() {
 				{/* Cedula de cinco reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#A487B8">R$5</Cedula>
-					<span className="mt-2 font-bold text-lg">{five}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$5}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						5
 					</div>
@@ -253,7 +226,7 @@ function ChangeSection() {
 				{/* Cedula de dez reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#C1443D">R$10</Cedula>
-					<span className="mt-2 font-bold text-lg">{ten}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$10}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						1
 					</div>
@@ -262,7 +235,7 @@ function ChangeSection() {
 				{/* Cedula de vinte reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#E6B23A">R$20</Cedula>
-					<span className="mt-2 font-bold text-lg">{twenty}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$20}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						2
 					</div>
@@ -271,7 +244,7 @@ function ChangeSection() {
 				{/* Cedula de cinquenta reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#DC9C58">R$50</Cedula>
-					<span className="mt-2 font-bold text-lg">{fifty}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$50}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						Alt + 5
 					</div>
@@ -280,7 +253,7 @@ function ChangeSection() {
 				{/* Cedula de cem reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#1D5C8F">R$100</Cedula>
-					<span className="mt-2 font-bold text-lg">{oneHundred}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$100}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						Shift + 1
 					</div>
@@ -289,7 +262,7 @@ function ChangeSection() {
 				{/* Cedula de duzentos reais */}
 				<div className="flex flex-col items-center">
 					<Cedula color="#A9A9A9">R$200</Cedula>
-					<span className="mt-2 font-bold text-lg">{twoHundred}</span>
+					<span className="mt-2 font-bold text-lg">{storage.R$200}</span>
 					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
 						Shift + 2
 					</div>
@@ -303,7 +276,7 @@ function ChangeSection() {
 					<Coin color="#B87333" size="90px">
 						5c
 					</Coin>
-					<span className="mt-2 font-bold text-lg">{fiveCents}</span>
+					<span className="mt-2 font-bold text-lg">{storage["5cent"]}</span>
 					<div className="w-fit rounded bg-white/10 px-2 py-1 text-xs font-normal">
 						Alt + C
 					</div>
@@ -314,7 +287,7 @@ function ChangeSection() {
 					<Coin color="#D4AF37" size="80px">
 						10c
 					</Coin>
-					<span className="mt-2 font-bold text-lg">{tenCents}</span>
+					<span className="mt-2 font-bold text-lg">{storage["10cent"]}</span>
 					<div className="w-fit rounded bg-white/10 px-2 py-1 text-xs font-normal">
 						D
 					</div>
@@ -325,7 +298,7 @@ function ChangeSection() {
 					<Coin color="#D4AF37" size="100px">
 						25c
 					</Coin>
-					<span className="mt-2 font-bold text-lg">{twentyFiveCents}</span>
+					<span className="mt-2 font-bold text-lg">{storage["25cent"]}</span>
 					<div className="w-fit rounded bg-white/10 px-2 py-1 text-xs font-normal">
 						V
 					</div>
@@ -336,7 +309,7 @@ function ChangeSection() {
 					<Coin color="#C0C0C0" size="95px">
 						<span className="text-zinc-800">50c</span>
 					</Coin>
-					<span className="mt-2 font-bold text-lg">{fiftyCents}</span>
+					<span className="mt-2 font-bold text-lg">{storage["50cent"]}</span>
 					<div className="w-fit rounded bg-white/10 px-2 py-1 text-xs font-normal">
 						C
 					</div>
@@ -349,7 +322,7 @@ function ChangeSection() {
 							<span className="text-zinc-800">1R</span>
 						</Coin>
 					</Coin>
-					<span className="mt-2 font-bold text-lg">{one}</span>
+					<span className="mt-2 font-bold text-lg">{storage["1R"]}</span>
 					<div className="w-fit rounded bg-white/10 px-2 py-1 text-xs font-normal">
 						Alt + 1
 					</div>
