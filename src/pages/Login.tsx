@@ -3,6 +3,7 @@ import { getAllEmployees } from "../lib/employees";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import useEmployeeStore from "../components/EmployeeStore";
+import { type ButtonProps, cn } from "../lib/utils";
 
 const WRONG_PASS = "A senha inserida para este usuário está incorreta";
 
@@ -68,8 +69,8 @@ export default function Login() {
 					placeholder={`Insira a senha para ${employee.name}`}
 				/>
 
-				<button
-					type="button"
+				<RichButton
+					className="mt-4"
 					onClick={() =>
 						isCorrect().then((valid) => {
 							if (!valid) return setError(WRONG_PASS);
@@ -78,13 +79,27 @@ export default function Login() {
 							go("/");
 						})
 					}
-					className="bg-zinc-200 border-2 border-zinc-100 hover:bg-zinc-100 text-black font-semibold text-lg rounded cursor-pointer w-full p-2 mt-4"
 				>
 					Entrar
-				</button>
+				</RichButton>
 
 				{error && <p className="mt-2 text-red-400 text-center">{error}</p>}
 			</div>
 		</div>
+	);
+}
+
+export function RichButton({ className, ...others }: ButtonProps) {
+	return (
+		<button
+			{...others}
+			type="button"
+			className={cn(
+				"bg-zinc-200 border-zinc-100 hover:bg-zinc-100 text-black",
+				"border-2 font-semibold text-lg rounded cursor-pointer w-full p-2",
+				"flex gap-2 items-center justify-center",
+				className,
+			)}
+		/>
 	);
 }

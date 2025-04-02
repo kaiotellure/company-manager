@@ -1,15 +1,18 @@
-import { Banknote } from "lucide-react";
+import { BadgeDollarSign, Banknote, LogOut, X } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 
 import useEmployeeStore from "../components/EmployeeStore";
-import { cn } from "../lib/utils";
+import { type ButtonProps, cn, money } from "../lib/utils";
 import {
 	type BillKey,
 	BILLS,
 	type DescriptiveBill,
 	getChangeFor,
 } from "../lib/bills";
+import { RichButton } from "./Login";
+import AutoFocusInput from "../components/AutoFocusInput";
+import PrivateValue from "../components/PrivateValue";
 
 function Cedula({
 	children,
@@ -44,9 +47,24 @@ function Coin({
 	);
 }
 
-function CalculateChangePopup({ bills }: { bills: DescriptiveBill[] }) {
+function CalculateChangePopup({
+	bills,
+	close,
+	update,
+}: {
+	bills: DescriptiveBill[];
+	close: () => void;
+	update: (name: BillKey, offset: number) => void;
+}) {
 	const [amount, setAmount] = useState(0);
 	const { change, remaining } = getChangeFor(amount, bills);
+
+	function register() {
+		for (const b of change) {
+			update(b.name as BillKey, -b.quantity);
+		}
+		close();
+	}
 
 	return (
 		// biome-ignore lint/a11y/useKeyWithClickEvents:
@@ -54,13 +72,19 @@ function CalculateChangePopup({ bills }: { bills: DescriptiveBill[] }) {
 			onClick={(e) => e.stopPropagation()}
 			className="max-w-2/3 bg-zinc-800 p-4 rounded"
 		>
-			<h2 className="font-medium">Calcular Troco</h2>
+			<h2 className="font-medium">Montar Valor</h2>
 			<p className="text-sm opacity-80">
 				Insira o valor que deseja formar e mostraremos como montar este valor
 				com as cédulas e moedas disponíveis.
 			</p>
 
-			<input
+			<AutoFocusInput
+				onKeyDown={(e) => {
+					if (e.key === "Escape") close();
+				}}
+				onKeyUp={(e) => {
+					if (e.key === "Enter") register();
+				}}
 				type="number"
 				value={amount}
 				onChange={(e) => setAmount(Number.parseInt(e.target.value))}
@@ -68,26 +92,63 @@ function CalculateChangePopup({ bills }: { bills: DescriptiveBill[] }) {
 				placeholder="Valor a ser montado"
 			/>
 
-			{amount !== 0 && (
+			{!!amount && (
 				<div>
-					<h2 className="mt-2 text-sm font-medium opacity-40">A ENTREGAR</h2>
+					<h2 className="mt-2 text-sm font-medium opacity-20">A ENTREGAR</h2>
 
 					{change.map(({ name, value, quantity }) => {
 						return (
 							<p key={name}>
-								{quantity} {value > 1 ? "cédula(s)" : "moeda(s)"} <span className="opacity-60">de</span> <b>{name}</b>
+								<b>{quantity}</b>{" "}
+								<span className="opacity-60">
+									{value > 1 ? "cédula(s)" : "moeda(s)"} de
+								</span>{" "}
+								<b>{name}</b>
 							</p>
 						);
 					})}
 
 					{remaining !== 0 && (
 						<p className="text-red-500 font-medium text-sm">
-							ATENÇÃO: Ainda restam R${remaining}
+							<b>ATENÇÃO</b>: Não foi possível formar os últimos{" "}
+							<b>R${remaining}</b>, consiga este dinheiro, adicione e tente
+							novamente!
 						</p>
 					)}
+
+					<div className="mt-4 flex gap-2">
+						{!remaining && (
+							<RichButton onClick={register}>
+								<LogOut size="1em" className="-rotate-90" /> Registrar Saída{" "}
+								<span className="text-xs opacity-40"> (ENTER)</span>
+							</RichButton>
+						)}
+						<MutedButton onClick={close}>
+							<X size="1em" /> Fechar{" "}
+							<span className="text-xs opacity-40"> (ESC)</span>
+						</MutedButton>
+					</div>
+
+					<p className="mt-2 text-xs opacity-40">
+						Registrar irá remover estas cédulas e/ou moedas da contagem. Fechar
+						não afeta a contagem e fecha esta janela (clicar fora desta janela
+						faz o mesmo).
+					</p>
 				</div>
 			)}
 		</div>
+	);
+}
+
+export function MutedButton({ className, ...others }: ButtonProps) {
+	return (
+		<RichButton
+			{...others}
+			className={cn(
+				"bg-zinc-900 border-none hover:bg-zinc-700 text-white",
+				className,
+			)}
+		/>
 	);
 }
 
@@ -101,6 +162,10 @@ function ChangeSection() {
 		setStorage((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) + offset) }));
 	}
 
+	function count(name: BillKey) {
+		return storage[name] || 0;
+	}
+
 	function onKey(e: KeyboardEvent) {
 		if (isPopupOpen) return;
 
@@ -108,6 +173,10 @@ function ChangeSection() {
 		console.log(mode, dir, e.key, e.code, e.altKey, e.ctrlKey, e.shiftKey);
 
 		switch (e.code) {
+			case "KeyT":
+				setIsPopupOpen(true);
+				break;
+
 			case "Space":
 				setMode(!mode);
 				break;
@@ -169,103 +238,95 @@ function ChangeSection() {
 					onClick={() => setIsPopupOpen(false)}
 					className="z-10 absolute flex justify-center items-center top-0 left-0 w-full h-full bg-black/75 backdrop-blur-md"
 				>
-					<CalculateChangePopup bills={available} />
+					<CalculateChangePopup
+						bills={available}
+						update={update}
+						close={() => {
+							setIsPopupOpen(false);
+						}}
+					/>
 				</div>
 			)}
 
 			<div className="flex items-center gap-2">
-				<div title="Soma total das cédulas e moedas em caixa">
-					SOMA:{" "}
-					<span className="text-emerald-500 font-semibold">
-						R${sum.toFixed(2)}
-					</span>
-				</div>
+				<PrivateValue>{money(sum)}</PrivateValue>
 
-				<div title="Aperte espaço para alternar entre ENTRANDO e SAINDO">
-					MODO:{" "}
-					<span
+				<MutedButton className="w-fit text-base" onClick={() => setMode(!mode)}>
+					MODO{" "}
+					<div
 						className={cn(
-							"font-semibold",
+							"flex gap-1 items-center font-semibold",
 							mode ? "text-emerald-500" : "text-red-500",
 						)}
 					>
+						{mode ? (
+							<LogOut className="rotate-90" size="1em" />
+						) : (
+							<LogOut className="-rotate-90" size="1em" />
+						)}
 						{mode ? "ENTRANDO" : "SAINDO"}
-					</span>
-				</div>
+					</div>
+					<span className="text-xs opacity-40"> (ESPAÇO)</span>
+				</MutedButton>
 
-				<button
-					onClick={(e) => setIsPopupOpen(true)}
-					className="bg-white/10 hover:bg-white/20 rounded px-2 py-1 cursor-pointer"
-					type="button"
-					title="Aperte espaço para alternar entre ENTRANDO e SAINDO"
+				<RichButton
+					className="w-fit text-base"
+					onClick={() => setIsPopupOpen(true)}
 				>
-					Calcular Troco
-				</button>
+					<BadgeDollarSign size="1em" /> Montar Valor/Troco{" "}
+					<span className="text-xs opacity-40"> (T)</span>
+				</RichButton>
 			</div>
 
 			<span className="mt-4 text-xs opacity-40 font-medium">CÉDULAS</span>
 			<div className="flex gap-2">
 				{/* Cedula de dois reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#2c7fb8">R$2</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$2}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						Alt + 2
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">Alt + 2</span>
+					<img src="/img/cedula/2.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$2 || 0}</span>
 				</div>
 
 				{/* Cedula de cinco reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#A487B8">R$5</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$5}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						5
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">5</span>
+					<img src="/img/cedula/5.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$5 || 0}</span>
 				</div>
 
 				{/* Cedula de dez reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#C1443D">R$10</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$10}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						1
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">1</span>
+					<img src="/img/cedula/10.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$10 || 0}</span>
 				</div>
 
 				{/* Cedula de vinte reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#E6B23A">R$20</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$20}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						2
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">2</span>
+					<img src="/img/cedula/20.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$20 || 0}</span>
 				</div>
 
 				{/* Cedula de cinquenta reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#DC9C58">R$50</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$50}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						Alt + 5
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">Alt + 5</span>
+					<img src="/img/cedula/50.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$50 || 0}</span>
 				</div>
 
 				{/* Cedula de cem reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#1D5C8F">R$100</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$100}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						Shift + 1
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">Shift + 1</span>
+					<img src="/img/cedula/100.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$100 || 0}</span>
 				</div>
 
 				{/* Cedula de duzentos reais */}
-				<div className="flex flex-col items-center">
-					<Cedula color="#A9A9A9">R$200</Cedula>
-					<span className="mt-2 font-bold text-lg">{storage.R$200}</span>
-					<div className="rounded bg-white/20 px-2 py-1 text-xs font-normal">
-						Shift + 2
-					</div>
+				<div className="flex gap-2 flex-col items-center">
+					<span className="opacity-40 text-xs">Shift + 2</span>
+					<img src="/img/cedula/200.png" className="h-14" alt="" />
+					<span className="font-bold text-2xl">{storage.R$200 || 0} </span>
 				</div>
 			</div>
 
