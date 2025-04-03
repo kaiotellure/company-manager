@@ -8,7 +8,7 @@ interface EmployeeState {
 
 const useEmployeeStore = create<EmployeeState>()((set) => ({
   employee: undefined,
-  set: (e) => set((state) => ({ employee: e })),
+  set: (e) => set(() => ({ employee: e })),
 }))
 
 export default useEmployeeStore;

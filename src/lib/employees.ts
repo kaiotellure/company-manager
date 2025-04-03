@@ -21,8 +21,3 @@ export async function newEmployee(name: string, role: role, pw: string) {
 export function getAllEmployees() {
 	return Employees;
 }
-
-// Inserting default admin user
-await newEmployee("ADMINISTRADOR", "ADMINISTRADOR", "admin");
-await newEmployee("VIVI", "VENDEDOR", "123");
-await newEmployee("LUANA", "VENDEDOR", "123");
