@@ -3,7 +3,7 @@ import { getAllEmployees } from "../lib/employees";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import useEmployeeStore from "../components/EmployeeStore";
-import { type ButtonProps, cn } from "../lib/utils";
+import { RichButton } from "../components/Buttons";
 
 const WRONG_PASS = "A senha inserida para este usuário está incorreta";
 
@@ -89,17 +89,4 @@ export default function Login() {
 	);
 }
 
-export function RichButton({ className, ...others }: ButtonProps) {
-	return (
-		<button
-			{...others}
-			type="button"
-			className={cn(
-				"bg-zinc-200 border-zinc-100 hover:bg-zinc-100 text-black",
-				"border-2 font-semibold text-lg rounded cursor-pointer w-full p-2",
-				"flex gap-2 items-center justify-center",
-				className,
-			)}
-		/>
-	);
-}
+

@@ -3,32 +3,18 @@ import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 
 import useEmployeeStore from "../components/EmployeeStore";
-import { type ButtonProps, cn, money } from "../lib/utils";
+import { cn, money } from "../lib/utils";
+
 import {
 	type BillKey,
 	BILLS,
 	type DescriptiveBill,
 	getChangeFor,
 } from "../lib/bills";
-import { RichButton } from "./Login";
-import AutoFocusInput from "../components/AutoFocusInput";
-import PrivateValue from "../components/PrivateValue";
 
-function Cedula({
-	children,
-	color,
-	...others
-}: React.HTMLAttributes<HTMLDivElement>) {
-	return (
-		<div
-			{...others}
-			style={{ borderColor: color, color }}
-			className="flex flex-col justify-center items-end p-4 w-28 rounded-md font-bold text-xl border-2"
-		>
-			{children}
-		</div>
-	);
-}
+import { AutoFocusInput } from "../components/Inputs";
+import PrivateValue from "../components/PrivateValue";
+import { MutedButton, RichButton } from "../components/Buttons";
 
 function Coin({
 	children,
@@ -87,7 +73,7 @@ function CalculateChangePopup({
 				}}
 				type="number"
 				value={amount}
-				onChange={(e) => setAmount(Number.parseInt(e.target.value))}
+				onChange={(e) => setAmount(Number.parseFloat(e.target.value))}
 				className="mt-2 px-4 py-2 w-full rounded bg-zinc-900"
 				placeholder="Valor a ser montado"
 			/>
@@ -111,8 +97,7 @@ function CalculateChangePopup({
 					{remaining !== 0 && (
 						<p className="text-red-500 font-medium text-sm">
 							<b>ATENÇÃO</b>: Não foi possível formar os últimos{" "}
-							<b>R${remaining}</b>, consiga este dinheiro, adicione e tente
-							novamente!
+							<b>{money(remaining)}</b>
 						</p>
 					)}
 
@@ -140,31 +125,25 @@ function CalculateChangePopup({
 	);
 }
 
-export function MutedButton({ className, ...others }: ButtonProps) {
-	return (
-		<RichButton
-			{...others}
-			className={cn(
-				"bg-zinc-900 border-none hover:bg-zinc-700 text-white",
-				className,
-			)}
-		/>
-	);
-}
-
 function ChangeSection() {
 	const [mode, setMode] = useState(true);
 	const [isPopupOpen, setIsPopupOpen] = useState(false);
 
-	const [storage, setStorage] = useState<Record<string, number>>({});
+	const [storage, setStorage] = useState<Record<string, number>>(
+		// Start with saved value on local-storage
+		JSON.parse(localStorage.getItem("caixa") || "{}"),
+	);
 
 	function update(name: BillKey, offset: number) {
+		// Create a object copy, updating the new key
+		// preventing negative values
 		setStorage((s) => ({ ...s, [name]: Math.max(0, (s[name] || 0) + offset) }));
 	}
 
-	function count(name: BillKey) {
-		return storage[name] || 0;
-	}
+	useEffect(() => {
+		// On every change, save on local-storage
+		localStorage.setItem("caixa", JSON.stringify(storage));
+	}, [storage]);
 
 	function onKey(e: KeyboardEvent) {
 		if (isPopupOpen) return;
@@ -280,49 +259,49 @@ function ChangeSection() {
 
 			<span className="mt-4 text-xs opacity-40 font-medium">CÉDULAS</span>
 			<div className="flex gap-2">
-				{/* Cedula de dois reais */}
+				{/* Cédula de dois reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">Alt + 2</span>
 					<img src="/img/cedula/2.png" className="h-14" alt="" />
 					<span className="font-bold text-2xl">{storage.R$2 || 0}</span>
 				</div>
 
-				{/* Cedula de cinco reais */}
+				{/* Cédula de cinco reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">5</span>
 					<img src="/img/cedula/5.png" className="h-14" alt="" />
 					<span className="font-bold text-2xl">{storage.R$5 || 0}</span>
 				</div>
 
-				{/* Cedula de dez reais */}
+				{/* Cédula de dez reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">1</span>
 					<img src="/img/cedula/10.png" className="h-14" alt="" />
 					<span className="font-bold text-2xl">{storage.R$10 || 0}</span>
 				</div>
 
-				{/* Cedula de vinte reais */}
+				{/* Cédula de vinte reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">2</span>
 					<img src="/img/cedula/20.png" className="h-14" alt="" />
 					<span className="font-bold text-2xl">{storage.R$20 || 0}</span>
 				</div>
 
-				{/* Cedula de cinquenta reais */}
+				{/* Cédula de cinquenta reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">Alt + 5</span>
 					<img src="/img/cedula/50.png" className="h-14" alt="" />
 					<span className="font-bold text-2xl">{storage.R$50 || 0}</span>
 				</div>
 
-				{/* Cedula de cem reais */}
+				{/* Cédula de cem reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">Shift + 1</span>
 					<img src="/img/cedula/100.png" className="h-14" alt="" />
 					<span className="font-bold text-2xl">{storage.R$100 || 0}</span>
 				</div>
 
-				{/* Cedula de duzentos reais */}
+				{/* Cédula de duzentos reais */}
 				<div className="flex gap-2 flex-col items-center">
 					<span className="opacity-40 text-xs">Shift + 2</span>
 					<img src="/img/cedula/200.png" className="h-14" alt="" />
